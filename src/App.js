@@ -2,53 +2,6 @@ import logo from './logo.svg';
 import './App.css';
 import { useSession, useSupabaseClient, useSessionContext } from '@supabase/auth-helpers-react';
 import { useState } from 'react';
-import { gapi } from 'gapi';
-
-
-
-// Load the Google API client library
-gapi.load('client:auth2', initClient);
-
-async function initClient() {
-  // Initialize the API client with your API key or OAuth credentials
-  gapi.client.init({
-    apiKey: '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',
-    clientId: '291527248779-jtd5sob90hlvsg6h143kpnk2v0b9053h.apps.googleusercontent.com',
-    discoveryDocs: ["https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest"],
-    scope: "https://www.googleapis.com/auth/calendar.readonly",
-  }).then(function() {
-    // Call the function to retrieve events
-    listUpcomingEvents();
-  });
-}
-
-function listUpcomingEvents() {
-  // Set the minimum start time for events (timeMin)
-  var now = new Date();
-  var timeMin = now.toISOString(); // Current time in ISO format
-
-  // Make the API request to retrieve events
-  gapi.client.calendar.events.list({
-    'calendarId': 'primary', // Use 'primary' for the user's primary calendar
-    'timeMin': timeMin,
-    'showDeleted': false,
-    'singleEvents': true,
-    'orderBy': 'startTime'
-  }).then(function(response) {
-    var events = response.result.items;
-
-    if (events.length > 0) {
-      console.log('Upcoming events:');
-      for (var i = 0; i < events.length; i++) {
-        var event = events[i];
-        var start = event.start.dateTime || event.start.date;
-        console.log('%s - %s', start, event.summary);
-      }
-    } else {
-      console.log('No upcoming events found.');
-    }
-  });
-}
 
 
 
@@ -169,6 +122,7 @@ function App() {
             <button onClick={() => signOut()}>Sign Out</button>
             <p></p>
             <button onClick={() => readCalendarEvent()}>Read Calendar  </button>
+           
           </>
           :
           <>
