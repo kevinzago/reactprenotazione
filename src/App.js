@@ -1,7 +1,10 @@
 import logo from './logo.svg';
 import './App.css';
 import { useSession, useSupabaseClient, useSessionContext } from '@supabase/auth-helpers-react';
-import { useState } from 'react';
+import { useState} from 'react';
+
+
+
 
 
 
@@ -14,15 +17,22 @@ function App() {
   const session = useSession(); // tokens, when session exists we have a user
   const supabase = useSupabaseClient(); // talk to supabase!
   const { isLoading } = useSessionContext();
+
+  
+
   
   if(isLoading) {
     return <></>
   }
 
-  async function googleSignIn() {
+ /*  async function googleSignIn() {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
+        queryParams: {
+          access_type: 'offline',
+          prompt: 'consent',
+        },
         scopes: 'https://www.googleapis.com/auth/calendar'
       }
     });
@@ -30,11 +40,43 @@ function App() {
       alert("Error logging in to Google provider with Supabase");
       console.log(error);
     }
+  } */
+
+
+  async function googleSignIn() {
+    const { error, session } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        queryParams: {
+          access_type: 'offline',  // Richiedi un token di refresh
+          prompt: 'consent',      // Forza il consenso dell'utente
+        },
+        scopes: 'https://www.googleapis.com/auth/calendar',
+      },
+    });
+  
+    if (error) {
+      alert('Errore durante l\'accesso tramite il provider Google con Supabase');
+      console.log(error);
+    } else if (session) {
+      // Estrai il provider_token dalla sessione
+      const providerToken = session.provider_token;
+  
+      // Archivia il providerToken dove preferisci (local storage, cookie, database, server, ecc.)
+      localStorage.setItem('providerToken', providerToken);
+    
+    // Calcola il tempo di scadenza del token di accesso
+    const expiresIn = session.expires_in;  // Durata in secondi
+    const expirationTime = Date.now() + expiresIn * 1000;  // Converti in millisecondi
+    localStorage.setItem('tokenExpiration', expirationTime);
+    console.log('Token di accesso ottenuto con successo:', providerToken);
+    }
   }
 
   async function signOut() {
     await supabase.auth.signOut();
   }
+
 
   async function createCalendarEvent() {
     console.log("Creating calendar event");
@@ -68,7 +110,14 @@ function App() {
   console.log(start);
   console.log(eventName);
   console.log(eventDescription);
- 
+
+  // Leggi il valore dal localStorage
+  const providerToken = localStorage.getItem('providerToken');
+  const tokenExpiration = localStorage.getItem('tokenExpiration');
+
+  console.log('Provider Token:', providerToken);
+  console.log('Token Expiration:', tokenExpiration);
+  
   async function readCalendarEvent() {
     console.log("Read calendar event");
     fetch("https://www.googleapis.com/calendar/v3/calendars/primary/events?timeMin=2023-08-25T00:00:00Z&maxResults=1&orderBy=updated&singleEvents=true", {
@@ -92,54 +141,39 @@ function App() {
       console.error('Fetch error:', error);
     });
 
-    
-
   }
   
- 
-// Load the Google API client library
-gapi.load('client:auth2', initClient);
+  
 
-function initClient() {
-  // Initialize the API client with your API key or OAuth credentials
-  gapi.client.init({
-    apiKey: 'YOUR_API_KEY',
-    clientId: 'YOUR_CLIENT_ID',
-    discoveryDocs: ["https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest"],
-    scope: "https://www.googleapis.com/auth/calendar.readonly",
-  }).then(function() {
-    // Call the function to retrieve events
-    listUpcomingEvents();
-  });
-}
 
-function listUpcomingEvents() {
-  // Set the minimum start time for events (timeMin)
-  var now = new Date();
-  var timeMin = now.toISOString(); // Current time in ISO format
+  async function leggiEventoCalendario() {
+    try {
+      // evento partenza oggi 
+      const eventStartTime = new Date()
+      eventStartTime.setDate(eventStartTime.getDate())
+      console.log(eventStartTime)
+      const apiKey = 'AIzaSyCSad6CvkFdNozqiVAiabhOz0jUehdPTzE'; // Sostituisci con la tua chiave API Google
+      const response = await fetch(
+        `https://www.googleapis.com/calendar/v3/calendars/primary/events?timeMin=${eventStartTime.toISOString()}&maxResults=1&orderBy=updated&singleEvents=true&key=${apiKey}`,{
+         method: "GET",
+         headers: {
+          'Authorization': 'Bearer ' + session.provider_token
+        }
 
-  // Make the API request to retrieve events
-  gapi.client.calendar.events.list({
-    'calendarId': 'primary', // Use 'primary' for the user's primary calendar
-    'timeMin': timeMin,
-    'showDeleted': false,
-    'singleEvents': true,
-    'orderBy': 'startTime'
-  }).then(function(response) {
-    var events = response.result.items;
-
-    if (events.length > 0) {
-      console.log('Upcoming events:');
-      for (var i = 0; i < events.length; i++) {
-        var event = events[i];
-        var start = event.start.dateTime || event.start.date;
-        console.log('%s - %s', start, event.summary);
+         }
+      );
+  
+      if (!response.ok) {
+        const errorResponse = await response.json();
+        throw new Error(`Errore API: ${errorResponse.error.message}`);
       }
-    } else {
-      console.log('No upcoming events found.');
+  
+      const data = await response.json();
+      console.log(data);
+    } catch (error) {
+      console.error('Errore nella richiesta:', error);
     }
-  });
-}
+  }
 
 
 
@@ -164,10 +198,13 @@ function listUpcomingEvents() {
             <button onClick={() => signOut()}>Sign Out</button>
             <p></p>
             <button onClick={() => readCalendarEvent()}>Read Calendar  </button>
+            <p></p>
+            <button onClick={() => leggiEventoCalendario()}>Leggi evento Calendar  </button>
           </>
           :
           <>
-             
+
+            <p></p>
             <button onClick={() => googleSignIn()}>Sign In With Google</button>
           </>
           
